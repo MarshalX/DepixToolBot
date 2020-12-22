@@ -1,0 +1,4 @@
+pillow==8.0.1
+python-telegram-bot==13.1
+requests==2.25.1
+depix==1.0.2
