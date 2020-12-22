@@ -68,7 +68,7 @@ def process_handler(update: Update, context: CallbackContext) -> None:
 
     uploaded_photo = context.user_data['photo'].get_file()
 
-    with tempfile.NamedTemporaryFile(prefix=uploaded_photo.file_id) as f:
+    with tempfile.NamedTemporaryFile(prefix=uploaded_photo.file_id, suffix='.png') as f:
         result = requests.get(uploaded_photo.file_path)
         for chunk in result.iter_content(chunk_size=128):
             f.write(chunk)
@@ -128,7 +128,7 @@ def process_handler(update: Update, context: CallbackContext) -> None:
         writeAverageMatchToImage(pixelated_sub_rectangles, rectangle_matches, search_image, unpixelated_output_image)
 
         reply('Saving output image')
-        with tempfile.NamedTemporaryFile(suffix='output', prefix=uploaded_photo.file_id) as fo:
+        with tempfile.NamedTemporaryFile(prefix=f'{uploaded_photo.file_id}-output', suffix='.png') as fo:
             unpixelated_output_image.save(fo.name)
 
             reply('Sending output image')
