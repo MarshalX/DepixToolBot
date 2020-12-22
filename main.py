@@ -160,7 +160,7 @@ def main() -> None:
                     Filters.command & Filters.regex(r'^/\d$'), search_image_handler
                 )
             ],
-            process_handler: [
+            PROCESS_PHOTO: [
                 CommandHandler('done', process_handler)
             ]
         },
