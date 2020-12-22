@@ -1,0 +1,3 @@
+[submodule "depix"]
+	path = depix
+	url = git@github.com:beurtschipper/Depix.git
