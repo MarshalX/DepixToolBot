@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 
 import requests
-from telegram import Update
+from telegram import Document, Update
 from telegram.ext import CallbackContext, ConversationHandler, Defaults, \
     MessageHandler, Updater, CommandHandler, Filters
 
@@ -21,24 +21,27 @@ for root, _, files in os.walk(DEPIX_SEARCH_IMAGES_PATH):
         if file.endswith('.png'):
             SEARCH_IMAGES_TO_COMMANDS[len(SEARCH_IMAGES_TO_COMMANDS)] = file
 
-SENDING_PHOTO, SEARCH_IMAGE_CHOICE, PROCESS_PHOTO = range(3)
+SENDING_IMAGE, SEARCH_IMAGE_CHOICE, PROCESS_IMAGE = range(3)
 
 
 def start_handler(update: Update, _: CallbackContext) -> int:
     update.message.reply_text('Please, send a photo:')
 
-    return SENDING_PHOTO
+    return SENDING_IMAGE
 
 
-def photo_handler(update: Update, context: CallbackContext) -> int:
+def image_handler(update: Update, context: CallbackContext) -> int:
     text_builder = ['Please, select a search image:\n']
     text_builder += [f'/{number} – {name}' for number, name in SEARCH_IMAGES_TO_COMMANDS.items()]
 
-    best_photo = update.message.photo[0]
-    for photo in update.message.photo[1::]:
-        if photo.height * photo.width > best_photo.height * best_photo.height:
-            best_photo = photo
-    context.user_data['photo'] = best_photo
+    if update.message.document:
+        context.user_data['image'] = update.message.document
+    else:
+        best_photo = update.message.photo[0]
+        for photo in update.message.photo[1::]:
+            if photo.height * photo.width > best_photo.height * best_photo.height:
+                best_photo = photo
+        context.user_data['image'] = best_photo
 
     update.message.reply_text('\n'.join(text_builder))
 
@@ -46,18 +49,20 @@ def photo_handler(update: Update, context: CallbackContext) -> int:
 
 
 def search_image_handler(update: Update, context: CallbackContext) -> int:
-    photo = context.user_data['photo']
+    image = context.user_data['image']
+    image_details = image.file_name if isinstance(image, Document) else f'{image.width}x{image.height}'
+
     search_image_id = int(update.effective_message.text[1::])
 
     context.user_data['selected_search_image_id'] = search_image_id
 
     text = f'Almost done to start! \n\n' \
-           f'Image: {photo.width}x{photo.height} \n' \
+           f'Image: {image_details} \n' \
            f'Selected search image: {SEARCH_IMAGES_TO_COMMANDS[search_image_id]}\n\n' \
            f'/done'
     update.message.reply_text(text)
 
-    return PROCESS_PHOTO
+    return PROCESS_IMAGE
 
 
 def process_handler(update: Update, context: CallbackContext) -> None:
@@ -66,7 +71,7 @@ def process_handler(update: Update, context: CallbackContext) -> None:
     search_image_filename = SEARCH_IMAGES_TO_COMMANDS[context.user_data['selected_search_image_id']]
     path_to_search_image = DEPIX_SEARCH_IMAGES_PATH.joinpath(search_image_filename)
 
-    uploaded_photo = context.user_data['photo'].get_file()
+    uploaded_photo = context.user_data['image'].get_file()
 
     with tempfile.NamedTemporaryFile(prefix=uploaded_photo.file_id, suffix='.png') as f:
         result = requests.get(uploaded_photo.file_path)
@@ -152,15 +157,16 @@ def main() -> None:
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start_handler)],
         states={
-            SENDING_PHOTO: [
-                MessageHandler(Filters.photo, photo_handler),
+            SENDING_IMAGE: [
+                MessageHandler(Filters.photo, image_handler),
+                MessageHandler(Filters.document, image_handler),
             ],
             SEARCH_IMAGE_CHOICE: [
                 MessageHandler(
                     Filters.command & Filters.regex(r'^/\d$'), search_image_handler
                 )
             ],
-            PROCESS_PHOTO: [
+            PROCESS_IMAGE: [
                 CommandHandler('done', process_handler)
             ]
         },
